@@ -20,7 +20,6 @@ const (
 	ipv6ProtocolICMP = 58
 )
 
-
 func main() {
 
 	// check usage
