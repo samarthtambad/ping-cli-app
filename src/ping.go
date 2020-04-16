@@ -63,6 +63,7 @@ func main() {
 			case <-pingTicker.C:
 				duration, err := ping(remoteAddr, ttl, *ipv6Ptr)
 				if err != nil {
+					fmt.Println(err.Error())
 					fmt.Printf("Request timeout for icmp_seq %d no route to host %s \n", seqNo, remoteAddr.String())
 				} else {
 					fmt.Printf("Response from %s: icmp_seq=%d packets_lost=%d ttl=%d latency=%v \n", remoteAddr.String(), seqNo, seqNo - recv, ttl, duration.String())
@@ -89,21 +90,18 @@ func ping(remoteAddr *net.IPAddr, ttl int, v6 bool) (time.Duration, error) {
 	var network string
 	var msgType icmp.Type
 	var proto int
-	var localAddr string
 	if v6 {		// if ipv6 flag is set
-		localAddr = "::/0"
 		network = "ip6:icmp"
 		msgType = ipv6.ICMPTypeEchoRequest
 		proto = 1
 	} else {
-		localAddr = "0.0.0.0"
 		network = "ip4:icmp"
 		msgType = ipv4.ICMPTypeEcho
 		proto = 1
 	}
 
 	// establish connection
-	conn, err := icmp.ListenPacket(network, localAddr)
+	conn, err := icmp.ListenPacket(network, "")
 	if err != nil { return 0, err}
 	defer conn.Close()
 
