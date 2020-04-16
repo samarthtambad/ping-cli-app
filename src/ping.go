@@ -91,9 +91,9 @@ func ping(remoteAddr *net.IPAddr, ttl int, v6 bool) (time.Duration, error) {
 	var msgType icmp.Type
 	var proto int
 	if v6 {		// if ipv6 flag is set
-		network = "ip6:icmp"
+		network = "ip6:ipv6-icmp"
 		msgType = ipv6.ICMPTypeEchoRequest
-		proto = 1
+		proto = 58
 	} else {
 		network = "ip4:icmp"
 		msgType = ipv4.ICMPTypeEcho
