@@ -37,10 +37,7 @@ func main() {
 
 	// resolve hostname
 	remoteAddr, err := net.ResolveIPAddr(network, flag.Arg(0))
-	if err != nil {
-		fmt.Println("Resolution error", err.Error())
-		os.Exit(1)
-	}
+	checkError(err)
 
 	// notify on exit interrupt (^C)
 	sigs := make(chan os.Signal, 1)
