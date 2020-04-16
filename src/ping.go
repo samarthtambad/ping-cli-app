@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 	"net"
 	"os"
 	"os/signal"
@@ -12,26 +13,31 @@ import (
 	"time"
 )
 
-const localAddr = "0.0.0.0"
-
 func main() {
 
 	// check usage
-	if len(os.Args) != 2 && len(os.Args) != 3 {
-		fmt.Println("Usage: program", "[-ttl]", "host")
+	if len(os.Args) < 2 || len(os.Args) > 4 {
+		fmt.Println("Usage: program", "[-ttl]", "[-ipv6]", "host")
 		os.Exit(1)
 	}
 
 	// parse optional ttl flag
 	ttlPtr := flag.Int("ttl", 255, "Set the IP Time To Live for outgoing packets")
+	ipv6Ptr := flag.Bool("ipv6", false, "Set the protocol to IPv6")
 	flag.Parse()
+	fmt.Printf("ttl: %d, ipv6: %v, host: %s \n", *ttlPtr, *ipv6Ptr, flag.Arg(0))
+
+	// set protocol dependent values
+	var network string
+	if *ipv6Ptr {		// if ipv6 flag is set
+		network = "ip6"
+	} else {
+		network = "ip4"
+	}
 
 	// resolve hostname
-	remoteAddr, err := net.ResolveIPAddr("ip4", flag.Arg(0))
-	if err != nil {
-		fmt.Println("Resolution error", err.Error())
-		os.Exit(1)
-	}
+	remoteAddr, err := net.ResolveIPAddr(network, flag.Arg(0))
+	checkError(err)
 
 	// notify on exit interrupt (^C)
 	sigs := make(chan os.Signal, 1)
@@ -55,8 +61,9 @@ func main() {
 		for {
 			select {
 			case <-pingTicker.C:
-				duration, err := ping(remoteAddr, ttl)
+				duration, err := ping(remoteAddr, ttl, *ipv6Ptr)
 				if err != nil {
+					fmt.Println(err.Error())
 					fmt.Printf("Request timeout for icmp_seq %d no route to host %s \n", seqNo, remoteAddr.String())
 				} else {
 					fmt.Printf("Response from %s: icmp_seq=%d packets_lost=%d ttl=%d latency=%v \n", remoteAddr.String(), seqNo, seqNo - recv, ttl, duration.String())
@@ -70,29 +77,47 @@ func main() {
 	<-done
 	pingTicker.Stop()
 	fmt.Printf("--- %s ping statistics ---\n", remoteAddr.String())
-	fmt.Printf("%d packets transmitted, %d packets received, %d%% packet loss \n", seqNo, recv, (seqNo-recv)/seqNo)
+	fmt.Printf("%d packets transmitted, %d packets received, %d%% packet loss \n", seqNo, recv, ((seqNo-recv) * 100)/seqNo)
 }
 
 // send packet to remote address and receive response,
 // return (success, duration)
-func ping(remoteAddr *net.IPAddr, ttl int) (time.Duration, error) {
+func ping(remoteAddr *net.IPAddr, ttl int, v6 bool) (time.Duration, error) {
 
 	start := time.Now()
 
+	// set protocol dependent values
+	var network string
+	var msgType icmp.Type
+	var proto int
+	if v6 {		// if ipv6 flag is set
+		network = "ip6:ipv6-icmp"
+		msgType = ipv6.ICMPTypeEchoRequest
+		proto = 58
+	} else {
+		network = "ip4:icmp"
+		msgType = ipv4.ICMPTypeEcho
+		proto = 1
+	}
+
 	// establish connection
-	conn, err := icmp.ListenPacket("ip4:icmp", localAddr)
+	conn, err := icmp.ListenPacket(network, "")
 	if err != nil { return 0, err}
 	defer conn.Close()
 
-	// set TTL
-	conn.IPv4PacketConn().SetTTL(ttl)
+	// set TTL/hop limit
+	if v6 {
+		conn.IPv6PacketConn().SetHopLimit(ttl)
+	} else {
+		conn.IPv4PacketConn().SetTTL(ttl)
+	}
 
 	// set deadline of 1s to limit indefinite wait for response
 	conn.SetDeadline(time.Now().Add(1 * time.Second))
 
 	// prepare message
 	msg := icmp.Message{
-		Type: ipv4.ICMPTypeEcho,
+		Type: msgType,
 		Code:     0,
 		Body: &icmp.Echo{
 			ID:   os.Getpid() & 0xffff,
@@ -108,7 +133,6 @@ func ping(remoteAddr *net.IPAddr, ttl int) (time.Duration, error) {
 	// send packet
 	_, err = conn.WriteTo(msgBytes, remoteAddr)
 	if err != nil { return 0, err}
-	//fmt.Print("Message sent: ", n, msgBytes)
 
 	// receive a reply
 	replyBytes := make([]byte, 1500)
@@ -117,17 +141,17 @@ func ping(remoteAddr *net.IPAddr, ttl int) (time.Duration, error) {
 
 	duration := time.Since(start)
 
-	recvMsg, err := icmp.ParseMessage(1, replyBytes[:size])
+	recvMsg, err := icmp.ParseMessage(proto, replyBytes[:size])
 	if err != nil { return 0, err}
 
-	//fmt.Printf("Message received from %v: %d %v", peer, size, recvMsg.Type)
-
+	// check received message type
 	switch recvMsg.Type {
 	case ipv4.ICMPTypeEchoReply:
 		return duration, nil
-
+	case ipv6.ICMPTypeEchoReply:
+		return duration, nil
 	default:
-		return 0, fmt.Errorf("expected %s, got %s", ipv4.ICMPTypeEchoReply.String(), recvMsg.Type)
+		return 0, fmt.Errorf("expected %s or %s, got %s", ipv4.ICMPTypeEchoReply.String(), ipv6.ICMPTypeEchoReply.String(), recvMsg.Type)
 	}
 
 }
