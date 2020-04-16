@@ -81,7 +81,7 @@ func main() {
 	<-done
 	pingTicker.Stop()
 	fmt.Printf("--- %s ping statistics ---\n", remoteAddr.String())
-	fmt.Printf("%d packets transmitted, %d packets received, %d%% packet loss \n", seqNo, recv, (seqNo-recv)/seqNo)
+	fmt.Printf("%d packets transmitted, %d packets received, %d%% packet loss \n", seqNo, recv, ((seqNo-recv) * 100)/seqNo)
 }
 
 // send packet to remote address and receive response,
