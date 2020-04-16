@@ -26,26 +26,43 @@ func main() {
 		os.Exit(1)
 	}
 
-	duration, err := ping(remoteAddr, time.Now().Add(20 * time.Millisecond))
-	if err != nil {  }
-	fmt.Println(duration)
+	done := make(chan bool)
+	pingInterval := 2 * time.Second
+	pingTicker := time.NewTicker(pingInterval)
+
+	go func() {
+		seqNo := 0
+		recv := 0
+		for {
+			select {
+			case <-pingTicker.C:
+				duration, err := ping(remoteAddr)
+				if err != nil {
+					fmt.Printf("Request timeout for icmp_seq %d no route to host %s", seqNo, remoteAddr.String())
+				} else {
+					fmt.Printf("Response from %s: icmp_seq=%d latency=%v \n", remoteAddr.String(), seqNo, duration.String())
+					recv += 1
+				}
+				seqNo += 1
+			}
+		}
+	}()
+
+	<-done
+	pingTicker.Stop()
 
 }
 
 // send packet to remote address and receive response,
 // return (success, duration)
-func ping(remoteAddr *net.IPAddr, ttl time.Time) (time.Duration, error) {
+func ping(remoteAddr *net.IPAddr) (time.Duration, error) {
 
 	start := time.Now()
 
 	// establish connection
 	conn, err := icmp.ListenPacket("ip4:icmp", localAddr)
-	checkError(err)
+	if err != nil { return 0, err}
 	defer conn.Close()
-
-	// set ttl
-	err = conn.SetDeadline(ttl)
-	checkError(err)
 
 	// prepare message
 	msg := icmp.Message{
