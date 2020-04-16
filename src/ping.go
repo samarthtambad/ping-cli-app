@@ -71,6 +71,9 @@ func ping(remoteAddr *net.IPAddr, ttl int) (time.Duration, error) {
 	// set TTL
 	conn.IPv4PacketConn().SetTTL(ttl)
 
+	// set deadline of 1s to limit indefinite wait for response
+	conn.SetDeadline(time.Now().Add(1 * time.Second))
+
 	// prepare message
 	msg := icmp.Message{
 		Type: ipv4.ICMPTypeEcho,
