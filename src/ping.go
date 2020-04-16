@@ -48,7 +48,7 @@ func main() {
 				if err != nil {
 					fmt.Printf("Request timeout for icmp_seq %d no route to host %s \n", seqNo, remoteAddr.String())
 				} else {
-					fmt.Printf("Response from %s: icmp_seq=%d ttl=%d latency=%v \n", remoteAddr.String(), seqNo, ttl, duration.String())
+					fmt.Printf("Response from %s: icmp_seq=%d packets_lost=%d ttl=%d latency=%v \n", remoteAddr.String(), seqNo, recv, ttl, duration.String())
 					recv += 1
 				}
 				seqNo += 1
