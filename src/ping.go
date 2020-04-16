@@ -6,6 +6,7 @@ import (
 	"golang.org/x/net/ipv4"
 	"net"
 	"os"
+	"time"
 )
 
 const localAddr = "0.0.0.0"
@@ -25,16 +26,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	ping(remoteAddr)
+	duration, err := ping(remoteAddr, time.Now().Add(20 * time.Millisecond))
+	if err != nil {  }
+	fmt.Println(duration)
 
 }
 
-func ping(remoteAddr *net.IPAddr)  {
+// send packet to remote address and receive response,
+// return (success, duration)
+func ping(remoteAddr *net.IPAddr, ttl time.Time) (time.Duration, error) {
+
+	start := time.Now()
 
 	// establish connection
 	conn, err := icmp.ListenPacket("ip4:icmp", localAddr)
 	checkError(err)
 	defer conn.Close()
+
+	// set ttl
+	err = conn.SetDeadline(ttl)
+	checkError(err)
 
 	// prepare message
 	msg := icmp.Message{
@@ -49,24 +60,33 @@ func ping(remoteAddr *net.IPAddr)  {
 
 	// marshall packet
 	msgBytes, err := msg.Marshal(nil)
-	checkError(err)
-
+	if err != nil { return 0, err}
 
 	// send packet
-	n, err := conn.WriteTo(msgBytes, remoteAddr)
-	checkError(err)
-	fmt.Print("Message sent: ", n, msgBytes)
+	_, err = conn.WriteTo(msgBytes, remoteAddr)
+	if err != nil { return 0, err}
+	//fmt.Print("Message sent: ", n, msgBytes)
 
 	// receive a reply
 	replyBytes := make([]byte, 1500)
-	size, peer, err := conn.ReadFrom(replyBytes)
-	checkError(err)
+	size, _, err := conn.ReadFrom(replyBytes)
+	if err != nil { return 0, err}
+
+	duration := time.Since(start)
 
 	recvMsg, err := icmp.ParseMessage(1, replyBytes[:size])
-	checkError(err)
+	if err != nil { return 0, err}
 
-	fmt.Printf("Message received from %v: %d %v", peer, size, recvMsg.Type)
-	
+	//fmt.Printf("Message received from %v: %d %v", peer, size, recvMsg.Type)
+
+	switch recvMsg.Type {
+	case ipv4.ICMPTypeEchoReply:
+		return duration, nil
+
+	default:
+		return 0, fmt.Errorf("expected %s, got %s", ipv4.ICMPTypeEchoReply.String(), recvMsg.Type)
+	}
+
 }
 
 func checkError(err error)  {
