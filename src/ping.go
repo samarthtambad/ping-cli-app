@@ -42,7 +42,7 @@ func main() {
 			case <-pingTicker.C:
 				duration, err := ping(remoteAddr, ttl)
 				if err != nil {
-					fmt.Printf("Request timeout for icmp_seq %d no route to host %s", seqNo, remoteAddr.String())
+					fmt.Printf("Request timeout for icmp_seq %d no route to host %s \n", seqNo, remoteAddr.String())
 				} else {
 					fmt.Printf("Response from %s: icmp_seq=%d ttl=%d latency=%v \n", remoteAddr.String(), seqNo, ttl, duration.String())
 					recv += 1
