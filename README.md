@@ -21,4 +21,5 @@ To run the application, use the following command: \
 ```sudo go run src/ping.go -ttl=100 -ipv6 ipv6.google.com```
 
 ### Note
-Administrator privileges required. Must use ```sudo```.
+In order for Ping to work it needs to be able to create a raw network socket. This is typically a privileged action
+Therefore, administrator privileges required. Must use ```sudo```.
