@@ -13,8 +13,6 @@ import (
 	"time"
 )
 
-const localAddr = "0.0.0.0"
-
 func main() {
 
 	// check usage
@@ -94,11 +92,14 @@ func ping(remoteAddr *net.IPAddr, ttl int, v6 bool) (time.Duration, error) {
 	var network string
 	var msgType icmp.Type
 	var proto int
+	var localAddr string
 	if v6 {		// if ipv6 flag is set
+		localAddr = "::/0"
 		network = "ip6:icmp"
 		msgType = ipv6.ICMPTypeEchoRequest
 		proto = 1
 	} else {
+		localAddr = "0.0.0.0"
 		network = "ip4:icmp"
 		msgType = ipv4.ICMPTypeEcho
 		proto = 1
