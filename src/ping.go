@@ -51,6 +51,7 @@ func main() {
 	seqNo := 0
 	recv := 0
 	go func(ttl int) {
+		fmt.Printf("PING %s \n", remoteAddr.String())
 		for {
 			select {
 			case <-pingTicker.C:
