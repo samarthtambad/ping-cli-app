@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
@@ -26,27 +27,30 @@ func main() {
 		os.Exit(1)
 	}
 
+	ttlPtr := flag.Int("ttl", 255, "Set the IP Time To Live for outgoing packets")
+	flag.Parse()
 	done := make(chan bool)
 	pingInterval := 2 * time.Second
 	pingTicker := time.NewTicker(pingInterval)
 
-	go func() {
+	// periodically send echo requests
+	go func(ttl int) {
 		seqNo := 0
 		recv := 0
 		for {
 			select {
 			case <-pingTicker.C:
-				duration, err := ping(remoteAddr)
+				duration, err := ping(remoteAddr, ttl)
 				if err != nil {
 					fmt.Printf("Request timeout for icmp_seq %d no route to host %s", seqNo, remoteAddr.String())
 				} else {
-					fmt.Printf("Response from %s: icmp_seq=%d latency=%v \n", remoteAddr.String(), seqNo, duration.String())
+					fmt.Printf("Response from %s: icmp_seq=%d ttl=%d latency=%v \n", remoteAddr.String(), seqNo, ttl, duration.String())
 					recv += 1
 				}
 				seqNo += 1
 			}
 		}
-	}()
+	}(*ttlPtr)
 
 	<-done
 	pingTicker.Stop()
@@ -55,7 +59,7 @@ func main() {
 
 // send packet to remote address and receive response,
 // return (success, duration)
-func ping(remoteAddr *net.IPAddr) (time.Duration, error) {
+func ping(remoteAddr *net.IPAddr, ttl int) (time.Duration, error) {
 
 	start := time.Now()
 
@@ -63,6 +67,9 @@ func ping(remoteAddr *net.IPAddr) (time.Duration, error) {
 	conn, err := icmp.ListenPacket("ip4:icmp", localAddr)
 	if err != nil { return 0, err}
 	defer conn.Close()
+
+	// set TTL
+	conn.IPv4PacketConn().SetTTL(ttl)
 
 	// prepare message
 	msg := icmp.Message{
