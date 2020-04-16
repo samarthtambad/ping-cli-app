@@ -15,20 +15,24 @@ const localAddr = "0.0.0.0"
 func main() {
 
 	// check usage
-	if len(os.Args) != 2 {
-		fmt.Println("Usage: ", os.Args[0], "host")
+	if len(os.Args) != 2 && len(os.Args) != 3 {
+		fmt.Println("Usage: program", "[-ttl]", "host")
 		os.Exit(1)
 	}
 
+	// parse optional ttl flag
+	ttlPtr := flag.Int("ttl", 255, "Set the IP Time To Live for outgoing packets")
+	flag.Parse()
+
 	// resolve hostname
-	remoteAddr, err := net.ResolveIPAddr("ip4", os.Args[1])
+	remoteAddr, err := net.ResolveIPAddr("ip4", flag.Arg(0))
 	if err != nil {
 		fmt.Println("Resolution error", err.Error())
 		os.Exit(1)
 	}
 
-	ttlPtr := flag.Int("ttl", 255, "Set the IP Time To Live for outgoing packets")
-	flag.Parse()
+	//ttlPtr := flag.Int("ttl", 255, "Set the IP Time To Live for outgoing packets")
+	//flag.Parse()
 	done := make(chan bool)
 	pingInterval := 2 * time.Second
 	pingTicker := time.NewTicker(pingInterval)
