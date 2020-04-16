@@ -7,6 +7,8 @@ import (
 	"golang.org/x/net/ipv4"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -31,16 +33,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	//ttlPtr := flag.Int("ttl", 255, "Set the IP Time To Live for outgoing packets")
-	//flag.Parse()
-	done := make(chan bool)
+	// notify on exit interrupt (^C)
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		fmt.Println()
+		fmt.Println(sig)
+		done <- true
+	}()
+
 	pingInterval := 2 * time.Second
 	pingTicker := time.NewTicker(pingInterval)
 
 	// periodically send echo requests
+	seqNo := 0
+	recv := 0
 	go func(ttl int) {
-		seqNo := 0
-		recv := 0
 		for {
 			select {
 			case <-pingTicker.C:
@@ -58,7 +68,8 @@ func main() {
 
 	<-done
 	pingTicker.Stop()
-
+	fmt.Printf("--- %s ping statistics ---\n", remoteAddr.String())
+	fmt.Printf("%d packets transmitted, %d packets received, %d%% packet loss \n", seqNo, recv, (seqNo-recv)/seqNo)
 }
 
 // send packet to remote address and receive response,
