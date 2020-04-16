@@ -13,6 +13,13 @@ import (
 	"time"
 )
 
+const (
+	ipv4NetworkICMP = "ip4:icmp"
+	ipv6NetworkICMP = "ip6:ipv6-icmp"
+	ipv4ProtocolICMP = 1
+	ipv6ProtocolICMP = 58
+)
+
 func main() {
 
 	// check usage
@@ -25,7 +32,6 @@ func main() {
 	ttlPtr := flag.Int("ttl", 255, "Set the IP Time To Live for outgoing packets")
 	ipv6Ptr := flag.Bool("ipv6", false, "Set the protocol to IPv6")
 	flag.Parse()
-	fmt.Printf("ttl: %d, ipv6: %v, host: %s \n", *ttlPtr, *ipv6Ptr, flag.Arg(0))
 
 	// resolve hostname
 	remoteAddr, err := net.ResolveIPAddr("ip", flag.Arg(0))
@@ -55,7 +61,6 @@ func main() {
 			case <-pingTicker.C:
 				duration, err := ping(remoteAddr, ttl, *ipv6Ptr)
 				if err != nil {
-					fmt.Println(err.Error())
 					fmt.Printf("Request timeout for icmp_seq %d no route to host %s \n", seqNo, remoteAddr.String())
 				} else {
 					fmt.Printf("Response from %s: icmp_seq=%d packets_lost=%d ttl=%d latency=%v \n", remoteAddr.String(), seqNo, seqNo - recv, ttl, duration.String())
@@ -83,13 +88,13 @@ func ping(remoteAddr *net.IPAddr, ttl int, v6 bool) (time.Duration, error) {
 	var msgType icmp.Type
 	var proto int
 	if v6 {		// if ipv6 flag is set
-		network = "ip6:ipv6-icmp"
+		network = ipv6NetworkICMP
 		msgType = ipv6.ICMPTypeEchoRequest
-		proto = 58
+		proto = ipv6ProtocolICMP
 	} else {
-		network = "ip4:icmp"
+		network = ipv4NetworkICMP
 		msgType = ipv4.ICMPTypeEcho
-		proto = 1
+		proto = ipv4ProtocolICMP
 	}
 
 	// establish connection
