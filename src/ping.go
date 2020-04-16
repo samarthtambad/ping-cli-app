@@ -17,14 +17,16 @@ const localAddr = "0.0.0.0"
 func main() {
 
 	// check usage
-	if len(os.Args) != 2 && len(os.Args) != 3 {
+	if len(os.Args) <= 1 || len(os.Args) >= 4 {
 		fmt.Println("Usage: program", "[-ttl]", "host")
 		os.Exit(1)
 	}
 
 	// parse optional ttl flag
 	ttlPtr := flag.Int("ttl", 255, "Set the IP Time To Live for outgoing packets")
+	ipv6Ptr := flag.Bool("ipv6", false, "Set the protocol to IPv6")
 	flag.Parse()
+	fmt.Printf("ttl: %d, ipv6: %v, host: %s \n", *ttlPtr, *ipv6Ptr, flag.Arg(0))
 
 	// resolve hostname
 	remoteAddr, err := net.ResolveIPAddr("ip4", flag.Arg(0))
